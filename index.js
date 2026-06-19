@@ -80,7 +80,18 @@ async function run() {
 // ********************************************************
 // ********************************************************
 
-
+app.get("/api/freelancers", async(req, res)=>{
+  const result = await userCollection.find({role :'freelancer'}).toArray();
+  res.send(result)
+})
+app.get("/api/freelancers/:id", async(req, res)=>{
+  const {id} = req.params;
+  const result = await userCollection.findOne({_id: new ObjectId(id), role: "freelancer",});
+  if (!result) {
+    return res.status(404).send({ message: "Freelancer not found" });
+  }
+  res.send(result)
+})
 
 
 
