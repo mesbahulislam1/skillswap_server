@@ -23,30 +23,45 @@ async function run() {
     const db = client.db("TaskHive");
     const taskCollection = db.collection("tasks");
     const userCollection = db.collection("user");
+    const proposalsCollection = db.collection("proposals");
 
     app.post("/api/tasks", async (req, res) => {
       const data = req.body;
-      const newData ={
+      const newData = {
         ...data,
         postedDate: new Date(),
-      }
+      };
       const result = await taskCollection.insertOne(newData);
       res.json(result);
     });
 
     app.get("/api/tasks", async (req, res) => {
-      const query = {}
+      const query = {};
+
       if (req.query.search) {
         query.title = {
-          $regex: req.query.search, $options: 'i'
-        };     
-      };
+          $regex: req.query.search,
+          $options: "i",
+        };
+      }
 
       if (req.query.category) {
-        query.category = {$in : req.query.category.split(',')}
+        query.category = { $in: req.query.category.split(",") };
       }
-      const result = await taskCollection.find(query).toArray();
+      const result = await taskCollection
+        .find(query)
+        .sort({ postedDate: -1 })
+        .toArray();
       res.json(result);
+    });
+
+
+    app.get("/api/tasks/total/:email", async (req, res) => {
+      const {email} = req.params;
+
+      const result = await taskCollection.find({clientEmail: email}).toArray();
+
+      res.send(result);
     });
 
     app.get("/api/tasks/:id", async (req, res) => {
@@ -63,36 +78,74 @@ async function run() {
       res.json(result);
     });
 
-    app.patch("/api/tasks/:id", async(req, res)=>{
-      const {id} = req.params;
+    app.patch("/api/tasks/:id", async (req, res) => {
+      const { id } = req.params;
       const data = req.body;
-      const result =await taskCollection.updateOne(
-        {_id: new ObjectId(id)},
-        {$set: {
-          ...data
-        }}
-      )
-      res.send(result)
-    })
+      const result = await taskCollection.updateOne(
+        { _id: new ObjectId(id) },
+        {
+          $set: {
+            ...data,
+          },
+        },
+      );
+      res.send(result);
+    });
+
+    // ********************************************************
+    // ********************************************************
+    // ********************************************************
+
+    app.get("/api/freelancers", async (req, res) => {
+      const result = await userCollection
+        .find({ role: "freelancer" })
+        .sort({ createdAt: -1 })
+        .toArray();
+      res.send(result);
+    });
+    app.get("/api/freelancers/:id", async (req, res) => {
+      const { id } = req.params;
+      const result = await userCollection.findOne({
+        _id: new ObjectId(id),
+        role: "freelancer",
+      });
+      if (!result) {
+        return res.status(404).send({ message: "Freelancer not found" });
+      }
+      res.send(result);
+    });
 
 
-// ********************************************************
-// ********************************************************
-// ********************************************************
 
-app.get("/api/freelancers", async(req, res)=>{
-  const result = await userCollection.find({role :'freelancer'}).toArray();
+
+    // ********************************************************
+    // ********************************************************
+    // ********************************************************
+
+
+  app.post('/api/proposals', async(req, res)=>{
+    const data = req.body;
+    const newData ={
+      ...data,
+      createdAt: new Date()
+    }
+    console.log(newData)
+    const result = await proposalsCollection.insertOne(newData)
+    res.send(result)
+
+  })
+  app.get('/api/proposals/check', async(req, res)=>{
+    const {taskId, freelancerEmail } = req.query;
+
+    const result = await proposalsCollection.findOne({taskId, freelancerEmail});
+
+    res.json(!!result)
+  })
+
+ app.get('/api/proposals', async(req, res)=>{
+  const result = await proposalsCollection.find().toArray()
   res.send(result)
-})
-app.get("/api/freelancers/:id", async(req, res)=>{
-  const {id} = req.params;
-  const result = await userCollection.findOne({_id: new ObjectId(id), role: "freelancer",});
-  if (!result) {
-    return res.status(404).send({ message: "Freelancer not found" });
-  }
-  res.send(result)
-})
-
+ })
 
 
 
