@@ -48,6 +48,9 @@ async function run() {
       if (req.query.category) {
         query.category = { $in: req.query.category.split(",") };
       }
+      if (req.query.status) {
+        query.status = {$in: req.query.status.split(",")}
+      }
       const result = await taskCollection
         .find(query)
         .sort({ postedDate: -1 })
@@ -55,11 +58,12 @@ async function run() {
       res.json(result);
     });
 
-
     app.get("/api/tasks/total/:email", async (req, res) => {
-      const {email} = req.params;
+      const { email } = req.params;
 
-      const result = await taskCollection.find({clientEmail: email}).toArray();
+      const result = await taskCollection
+        .find({ clientEmail: email }).sort({ postedDate: -1 })
+        .toArray();
 
       res.send(result);
     });
@@ -115,39 +119,81 @@ async function run() {
       res.send(result);
     });
 
-
-
-
     // ********************************************************
     // ********************************************************
     // ********************************************************
 
+    app.post("/api/proposals", async (req, res) => {
+      const data = req.body;
+      const newData = {
+        ...data,
+        createdAt: new Date(),
+      };
+      const result = await proposalsCollection.insertOne(newData);
 
-  app.post('/api/proposals', async(req, res)=>{
-    const data = req.body;
-    const newData ={
-      ...data,
-      createdAt: new Date()
-    }
-    console.log(newData)
-    const result = await proposalsCollection.insertOne(newData)
-    res.send(result)
+      await taskCollection.updateOne(
+        { _id: new ObjectId(data.taskId) },
+        {
+          $inc: {
+            proposalCount: 1,
+          },
+        },
+      );
 
-  })
-  app.get('/api/proposals/check', async(req, res)=>{
-    const {taskId, freelancerEmail } = req.query;
+      await taskCollection.updateOne(
+        {_id: new ObjectId(data?.taskId)},
+        {
+          $set: {
+            status: 'in progress'
+          }
+        }
+      )
+      res.send(result);
+    });
 
-    const result = await proposalsCollection.findOne({taskId, freelancerEmail});
+    app.get("/api/proposals/check", async (req, res) => {
+      const { taskId, freelancerEmail } = req.query;
 
-    res.json(!!result)
-  })
+      const result = await proposalsCollection.findOne({
+        taskId,
+        freelancerEmail,
+      });
 
- app.get('/api/proposals', async(req, res)=>{
-  const result = await proposalsCollection.find().toArray()
-  res.send(result)
- })
+      res.json(!!result);
+    });
 
+    app.get("/api/proposals/:taskId", async (req, res) => {
+      const { taskId } = req.params;
 
+      const result = await proposalsCollection.find({ taskId }).toArray();
+      res.send(result);
+    });
+
+    app.get("/api/proposals", async (req, res) => {
+      const email = req.query.email;
+
+      const result = await proposalsCollection
+        .find({ freelancerEmail: email }).sort({createdAt: -1})
+        .toArray();
+
+      res.send(result);
+    });
+
+    app.patch("/api/proposals/:id", async (req, res) => {
+      const id = req.params.id;
+
+      const { status } = req.body;
+      // console.log("ID:", id);
+      // console.log("Status:", status);
+      const result = await proposalsCollection.updateOne(
+        { _id: new ObjectId(id) },
+        {
+          $set: { status },
+        },
+      );
+
+      res.send(result);
+    });
 
     console.log(
       "Pinged your deployment. You successfully connected to MongoDB!",
