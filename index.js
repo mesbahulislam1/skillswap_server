@@ -251,6 +251,45 @@ async function run() {
       res.send(result);
     });
 
+
+
+    app.get('/api/admin/users', async(req, res)=>{
+      const query ={}
+
+      if (req.query.search) {
+        query.name = {
+          $regex: req.query.search, $options: 'i',
+        };
+      }
+      if (req.query.role) {
+        query.role = req.query.role;
+      }
+      const result = await userCollection.find(query).toArray()
+      res.send(result)
+    })
+
+
+    app.patch('/api/admin/users/:id', async(req, res)=>{
+      const {id} = req.params;
+      const {isBlocked} = req.body;
+      
+         const result = await userCollection.updateOne(
+        {_id: new ObjectId(id)},
+        {
+          $set:{
+            isBlocked: isBlocked,
+          }
+        }
+      )
+      res.send(result)
+    })
+
+
+
+
+
+
+
     console.log(
       "Pinged your deployment. You successfully connected to MongoDB!",
     );
