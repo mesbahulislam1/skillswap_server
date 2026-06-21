@@ -19,7 +19,7 @@ const client = new MongoClient(uri, {
 });
 async function run() {
   try {
-    // await client.connect();
+    await client.connect();
     const db = client.db("TaskHive");
     const taskCollection = db.collection("tasks");
     const userCollection = db.collection("user");
@@ -49,7 +49,7 @@ async function run() {
         query.category = { $in: req.query.category.split(",") };
       }
       if (req.query.status) {
-        query.status = {$in: req.query.status.split(",")}
+        query.status = { $in: req.query.status.split(",") };
       }
       const result = await taskCollection
         .find(query)
@@ -62,7 +62,8 @@ async function run() {
       const { email } = req.params;
 
       const result = await taskCollection
-        .find({ clientEmail: email }).sort({ postedDate: -1 })
+        .find({ clientEmail: email })
+        .sort({ postedDate: -1 })
         .toArray();
 
       res.send(result);
@@ -141,13 +142,13 @@ async function run() {
       );
 
       await taskCollection.updateOne(
-        {_id: new ObjectId(data?.taskId)},
+        { _id: new ObjectId(data?.taskId) },
         {
           $set: {
-            status: 'in progress'
-          }
-        }
-      )
+            status: "in progress",
+          },
+        },
+      );
       res.send(result);
     });
 
@@ -173,22 +174,77 @@ async function run() {
       const email = req.query.email;
 
       const result = await proposalsCollection
-        .find({ freelancerEmail: email }).sort({createdAt: -1})
+        .find({ freelancerEmail: email })
+        .sort({ createdAt: -1 })
         .toArray();
 
       res.send(result);
+    });
+
+    app.get("/api/manage-proposal", async (req, res) => {
+      const email = req.query.email;
+      const result = await proposalsCollection
+        .find({ clientEmail: email })
+        .toArray();
+      res.send(result);
+    });
+
+    app.get("/api/manage-proposal-accepted", async (req, res) => {
+      const email = req.query.email;
+
+      const result = await proposalsCollection
+        .find({ freelancerEmail: email,  status: { $in: ["accepted", "completed"] } })
+        .toArray();
+
+      res.send(result);
+    });
+
+    app.patch("/api/manage-proposal-accepted", async (req, res) => {
+      const email = req.query.email;
+      const { taskId } = req.body;
+      const {deliverableUrl} = req.body;
+      console.log(email, taskId, deliverableUrl);
+
+      const Select = await proposalsCollection.updateOne(
+        { freelancerEmail: email, taskId: taskId },
+        {
+          $set: {
+            deliverableUrl: deliverableUrl,
+            status: "completed",
+          },
+        },
+      );
+      console.log(Select);
+
+      res.send(Select);
     });
 
     app.patch("/api/proposals/:id", async (req, res) => {
       const id = req.params.id;
 
       const { status } = req.body;
+
+      const proposal = await proposalsCollection.findOne({
+        _id: new ObjectId(id),
+      });
       // console.log("ID:", id);
       // console.log("Status:", status);
       const result = await proposalsCollection.updateOne(
         { _id: new ObjectId(id) },
         {
           $set: { status },
+        },
+      );
+
+      await proposalsCollection.updateMany(
+        {
+          taskId: proposal.taskId,
+          _id: { $ne: new ObjectId(id) },
+        },
+        {
+          $set: {
+            status: "rejected",
+          },
         },
       );
 
