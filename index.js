@@ -3,7 +3,8 @@ const dotenv = require("dotenv");
 dotenv.config();
 const cors = require("cors");
 const app = express();
-const port = process.env.PORT || 8080;
+const port = process.env.PORT;
+// const port = 8080;
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const { createRemoteJWKSet, jwtVerify } = require("jose-cjs");
 app.use(cors());
@@ -77,6 +78,26 @@ async function run() {
         .find(query)
         .sort({ postedDate: -1 })
         .toArray();
+      res.send(result);
+    });
+
+    app.get("/api/openTasks", async (req, res) => {
+      const { email } = req.query;
+
+      const result = await taskCollection
+        .find({ clientEmail: email, status: "open" })
+        .toArray();
+
+      res.send(result);
+    });
+
+    app.get("/api/InProgressTasks", async (req, res) => {
+      const { email } = req.query;
+
+      const result = await taskCollection
+        .find({ clientEmail: email, status: "in progress" })
+        .toArray();
+
       res.send(result);
     });
 
@@ -161,7 +182,9 @@ async function run() {
 
     app.get("/api/proposals/pending", async (req, res) => {
       const email = req.query.email;
-      const result = await proposalsCollection.find({freelancerEmail: email, status: 'pending' }).toArray();
+      const result = await proposalsCollection
+        .find({ freelancerEmail: email, status: "pending" })
+        .toArray();
 
       res.send(result);
     });
@@ -223,8 +246,6 @@ async function run() {
       res.send(result);
     });
 
-    
-
     app.get("/api/manage-proposal", async (req, res) => {
       const email = req.query.email;
       const result = await proposalsCollection
@@ -240,7 +261,8 @@ async function run() {
         .find({
           freelancerEmail: email,
           status: { $in: ["accepted", "completed"] },
-        }).toArray();
+        })
+        .toArray();
 
       res.send(result);
     });
@@ -249,7 +271,7 @@ async function run() {
       const email = req.query.email;
       const { taskId } = req.body;
       const { deliverableUrl } = req.body;
-   
+
       const Select = await proposalsCollection.updateOne(
         { freelancerEmail: email, taskId: taskId },
         {
@@ -333,6 +355,59 @@ async function run() {
       );
       res.send(result);
     });
+
+    app.patch("/api/users/:id", async (req, res) => {
+      try {
+        const id = req.params.id;
+
+        if (!ObjectId.isValid(id)) {
+          return res.status(400).send({ message: "Invalid ID" });
+        }
+
+        const result = await userCollection.updateOne(
+          { _id: new ObjectId(id) },
+          {
+            $set: req.body,
+            $currentDate: { updatedAt: true },
+          },
+        );
+
+        res.send(result);
+      } catch (err) {
+        console.log(err);
+        res.status(500).send(err);
+      }
+    });
+
+
+
+    app.get("/api/adminLength", async(req, res)=>{
+      const result = await userCollection.find({role: 'admin'}).toArray()
+      res.send(result)
+    })
+    app.get("/api/freelancerLength", async(req, res)=>{
+      const result = await userCollection.find({role: 'freelancer'}).toArray()
+      res.send(result)
+    })
+    app.get("/api/clientLength", async(req, res)=>{
+      const result = await userCollection.find({role: 'client'}).toArray()
+      res.send(result)
+    })
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
     console.log(
       "Pinged your deployment. You successfully connected to MongoDB!",
