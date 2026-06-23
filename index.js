@@ -3,7 +3,7 @@ const dotenv = require("dotenv");
 dotenv.config();
 const cors = require("cors");
 const app = express();
-const port = process.env.PORT;
+const port = process.env.PORT || 8080;
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const { createRemoteJWKSet, jwtVerify } = require("jose-cjs");
 app.use(cors());
@@ -19,29 +19,26 @@ const client = new MongoClient(uri, {
   },
 });
 
-
 const JWKS = createRemoteJWKSet(
-  new URL(`${process.env.LOCAL_URL}/api/auth/jwks`)
-)
+  new URL(`${process.env.LOCAL_URL}/api/auth/jwks`),
+);
 
-const verifyToken = async(req, res, next)=>{
-  const authHeader = req?.headers.authorization
+const verifyToken = async (req, res, next) => {
+  const authHeader = req?.headers.authorization;
   if (!authHeader) {
-    return res.status(401).json({message: "Unauthorized"})
+    return res.status(401).json({ message: "Unauthorized" });
   }
-  const token = authHeader.split(" ")[1]
- 
-  console.log(token)
+  const token = authHeader.split(" ")[1];
+
+  console.log(token);
   try {
-    const {payload }=await jwtVerify(token, JWKS)
-  console.log(payload)
+    const { payload } = await jwtVerify(token, JWKS);
+    console.log(payload);
   } catch (error) {
-    return res.status(403).json({message: "Forbidden"})
+    return res.status(403).json({ message: "Forbidden" });
   }
-  next()
-
-}
-
+  next();
+};
 
 async function run() {
   try {
@@ -58,7 +55,7 @@ async function run() {
         postedDate: new Date(),
       };
       const result = await taskCollection.insertOne(newData);
-      res.json(result);
+      res.send(result);
     });
 
     app.get("/api/tasks", async (req, res) => {
@@ -80,14 +77,14 @@ async function run() {
         .find(query)
         .sort({ postedDate: -1 })
         .toArray();
-      res.json(result);
+      res.send(result);
     });
 
-    app.delete("/api/tasks/:id", async(req, res)=>{
-      const {id} = req.params;
-      const result = await taskCollection.deleteOne({_id: new ObjectId(id)})
-      res.send(result)
-    })
+    app.delete("/api/tasks/:id", async (req, res) => {
+      const { id } = req.params;
+      const result = await taskCollection.deleteOne({ _id: new ObjectId(id) });
+      res.send(result);
+    });
 
     //  app.delete("/api/tasks/:id", async (req, res) => {
     //   const { id } = req.params;
@@ -96,13 +93,13 @@ async function run() {
     //   res.json(result);
     // });
 
+    app.get("/api/tasks/open-task", async (req, res) => {
+      const result = await taskCollection
+        .find({ status: "in progress" })
+        .toArray();
+      res.send(result);
+    });
 
-    app.get("/api/tasks/open-task", async(req, res)=>{
-      const result = await taskCollection.find({status: "in progress"}).toArray()
-      res.send(result)
-    })
-    
-    
     app.get("/api/tasks/total/:email", async (req, res) => {
       const { email } = req.params;
 
@@ -114,14 +111,12 @@ async function run() {
       res.send(result);
     });
 
-    app.get("/api/tasks/:id",  async (req, res) => {
+    app.get("/api/tasks/:id", async (req, res) => {
       const { id } = req.params;
 
       const result = await taskCollection.findOne({ _id: new ObjectId(id) });
-      res.json(result);
+      res.send(result);
     });
-
-   
 
     app.patch("/api/tasks/:id", async (req, res) => {
       const { id } = req.params;
@@ -164,6 +159,13 @@ async function run() {
     // ********************************************************
     // ********************************************************
 
+    app.get("/api/proposals/pending", async (req, res) => {
+      const email = req.query.email;
+      const result = await proposalsCollection.find({freelancerEmail: email, status: 'pending' }).toArray();
+
+      res.send(result);
+    });
+
     app.post("/api/proposals", async (req, res) => {
       const data = req.body;
       const newData = {
@@ -200,7 +202,7 @@ async function run() {
         freelancerEmail,
       });
 
-      res.json(!!result);
+      res.send(!!result);
     });
 
     app.get("/api/proposals/:taskId", async (req, res) => {
@@ -221,6 +223,8 @@ async function run() {
       res.send(result);
     });
 
+    
+
     app.get("/api/manage-proposal", async (req, res) => {
       const email = req.query.email;
       const result = await proposalsCollection
@@ -233,8 +237,10 @@ async function run() {
       const email = req.query.email;
 
       const result = await proposalsCollection
-        .find({ freelancerEmail: email,  status: { $in: ["accepted", "completed"] } })
-        .toArray();
+        .find({
+          freelancerEmail: email,
+          status: { $in: ["accepted", "completed"] },
+        }).toArray();
 
       res.send(result);
     });
@@ -242,9 +248,8 @@ async function run() {
     app.patch("/api/manage-proposal-accepted", async (req, res) => {
       const email = req.query.email;
       const { taskId } = req.body;
-      const {deliverableUrl} = req.body;
-      console.log(email, taskId, deliverableUrl);
-
+      const { deliverableUrl } = req.body;
+   
       const Select = await proposalsCollection.updateOne(
         { freelancerEmail: email, taskId: taskId },
         {
@@ -254,11 +259,11 @@ async function run() {
           },
         },
       );
-      
+
       await taskCollection.updateOne(
-        {_id: new ObjectId(taskId), freelancerEmail: email},
-        {}
-      )
+        { _id: new ObjectId(taskId), freelancerEmail: email },
+        {},
+      );
 
       res.send(Select);
     });
@@ -295,44 +300,39 @@ async function run() {
       res.send(result);
     });
 
-
-
-    app.get('/api/admin/users', async(req, res)=>{
-      const query ={}
+    app.get("/api/admin/users", async (req, res) => {
+      const query = {};
 
       if (req.query.search) {
         query.name = {
-          $regex: req.query.search, $options: 'i',
+          $regex: req.query.search,
+          $options: "i",
         };
       }
       if (req.query.role) {
         query.role = req.query.role;
       }
-      const result = await userCollection.find(query).sort({createdAt: -1}).toArray()
-      res.send(result)
-    })
+      const result = await userCollection
+        .find(query)
+        .sort({ createdAt: -1 })
+        .toArray();
+      res.send(result);
+    });
 
+    app.patch("/api/admin/users/:id", async (req, res) => {
+      const { id } = req.params;
+      const { isBlocked } = req.body;
 
-    app.patch('/api/admin/users/:id', async(req, res)=>{
-      const {id} = req.params;
-      const {isBlocked} = req.body;
-      
-         const result = await userCollection.updateOne(
-        {_id: new ObjectId(id)},
+      const result = await userCollection.updateOne(
+        { _id: new ObjectId(id) },
         {
-          $set:{
+          $set: {
             isBlocked: isBlocked,
-          }
-        }
-      )
-      res.send(result)
-    })
-
-
-
-
-
-
+          },
+        },
+      );
+      res.send(result);
+    });
 
     console.log(
       "Pinged your deployment. You successfully connected to MongoDB!",
