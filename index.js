@@ -3,8 +3,8 @@ const dotenv = require("dotenv");
 dotenv.config();
 const cors = require("cors");
 const app = express();
-const port = process.env.PORT;
-// const port = 8080;
+// const port = process.env.PORT;
+const port = 8080;
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const { createRemoteJWKSet, jwtVerify } = require("jose-cjs");
 app.use(cors());
@@ -41,9 +41,18 @@ const verifyToken = async (req, res, next) => {
   next();
 };
 
+
+
+
+
+
+
+
+
 async function run() {
   try {
-    await client.connect();
+    // await client.connect();
+    
     const db = client.db("TaskHive");
     const taskCollection = db.collection("tasks");
     const userCollection = db.collection("user");
@@ -81,7 +90,7 @@ async function run() {
       res.send(result);
     });
 
-    app.get("/api/openTasks", async (req, res) => {
+    app.get("/api/openTasks", verifyToken, async (req, res) => {
       const { email } = req.query;
 
       const result = await taskCollection
@@ -91,7 +100,7 @@ async function run() {
       res.send(result);
     });
 
-    app.get("/api/InProgressTasks", async (req, res) => {
+    app.get("/api/InProgressTasks", verifyToken, async (req, res) => {
       const { email } = req.query;
 
       const result = await taskCollection
@@ -101,7 +110,7 @@ async function run() {
       res.send(result);
     });
 
-    app.delete("/api/tasks/:id", async (req, res) => {
+    app.delete("/api/tasks/:id", verifyToken, async (req, res) => {
       const { id } = req.params;
       const result = await taskCollection.deleteOne({ _id: new ObjectId(id) });
       res.send(result);
@@ -114,14 +123,14 @@ async function run() {
     //   res.json(result);
     // });
 
-    app.get("/api/tasks/open-task", async (req, res) => {
+    app.get("/api/tasks/open-task", verifyToken, async (req, res) => {
       const result = await taskCollection
         .find({ status: "in progress" })
         .toArray();
       res.send(result);
     });
 
-    app.get("/api/tasks/total/:email", async (req, res) => {
+    app.get("/api/tasks/total/:email", verifyToken, async (req, res) => {
       const { email } = req.params;
 
       const result = await taskCollection
@@ -132,14 +141,14 @@ async function run() {
       res.send(result);
     });
 
-    app.get("/api/tasks/:id", async (req, res) => {
+    app.get("/api/tasks/:id", verifyToken, async (req, res) => {
       const { id } = req.params;
 
       const result = await taskCollection.findOne({ _id: new ObjectId(id) });
       res.send(result);
     });
 
-    app.patch("/api/tasks/:id", async (req, res) => {
+    app.patch("/api/tasks/:id", verifyToken, async (req, res) => {
       const { id } = req.params;
       const data = req.body;
       const result = await taskCollection.updateOne(
@@ -164,7 +173,7 @@ async function run() {
         .toArray();
       res.send(result);
     });
-    app.get("/api/freelancers/:id", async (req, res) => {
+    app.get("/api/freelancers/:id", verifyToken, async (req, res) => {
       const { id } = req.params;
       const result = await userCollection.findOne({
         _id: new ObjectId(id),
@@ -180,7 +189,7 @@ async function run() {
     // ********************************************************
     // ********************************************************
 
-    app.get("/api/proposals/pending", async (req, res) => {
+    app.get("/api/proposals/pending", verifyToken, async (req, res) => {
       const email = req.query.email;
       const result = await proposalsCollection
         .find({ freelancerEmail: email, status: "pending" })
@@ -189,7 +198,7 @@ async function run() {
       res.send(result);
     });
 
-    app.post("/api/proposals", async (req, res) => {
+    app.post("/api/proposals", verifyToken, async (req, res) => {
       const data = req.body;
       const newData = {
         ...data,
@@ -217,7 +226,7 @@ async function run() {
       res.send(result);
     });
 
-    app.get("/api/proposals/check", async (req, res) => {
+    app.get("/api/proposals/check", verifyToken, async (req, res) => {
       const { taskId, freelancerEmail } = req.query;
 
       const result = await proposalsCollection.findOne({
@@ -228,7 +237,7 @@ async function run() {
       res.send(!!result);
     });
 
-    app.get("/api/proposals/:taskId", async (req, res) => {
+    app.get("/api/proposals/:taskId",verifyToken, async (req, res) => {
       const { taskId } = req.params;
 
       const result = await proposalsCollection.find({ taskId }).toArray();
@@ -246,7 +255,7 @@ async function run() {
       res.send(result);
     });
 
-    app.get("/api/manage-proposal", async (req, res) => {
+    app.get("/api/manage-proposal", verifyToken, async (req, res) => {
       const email = req.query.email;
       const result = await proposalsCollection
         .find({ clientEmail: email })
@@ -254,7 +263,7 @@ async function run() {
       res.send(result);
     });
 
-    app.get("/api/manage-proposal-accepted", async (req, res) => {
+    app.get("/api/manage-proposal-accepted", verifyToken, async (req, res) => {
       const email = req.query.email;
 
       const result = await proposalsCollection
@@ -267,7 +276,7 @@ async function run() {
       res.send(result);
     });
 
-    app.patch("/api/manage-proposal-accepted", async (req, res) => {
+    app.patch("/api/manage-proposal-accepted", verifyToken, async (req, res) => {
       const email = req.query.email;
       const { taskId } = req.body;
       const { deliverableUrl } = req.body;
@@ -290,7 +299,7 @@ async function run() {
       res.send(Select);
     });
 
-    app.patch("/api/proposals/:id", async (req, res) => {
+    app.patch("/api/proposals/:id", verifyToken, async (req, res) => {
       const id = req.params.id;
 
       const { status } = req.body;
@@ -322,7 +331,7 @@ async function run() {
       res.send(result);
     });
 
-    app.get("/api/admin/users", async (req, res) => {
+    app.get("/api/admin/users", verifyToken, async (req, res) => {
       const query = {};
 
       if (req.query.search) {
@@ -341,7 +350,7 @@ async function run() {
       res.send(result);
     });
 
-    app.patch("/api/admin/users/:id", async (req, res) => {
+    app.patch("/api/admin/users/:id", verifyToken, async (req, res) => {
       const { id } = req.params;
       const { isBlocked } = req.body;
 
@@ -356,7 +365,7 @@ async function run() {
       res.send(result);
     });
 
-    app.patch("/api/users/:id", async (req, res) => {
+    app.patch("/api/users/:id", verifyToken, async (req, res) => {
       try {
         const id = req.params.id;
 
